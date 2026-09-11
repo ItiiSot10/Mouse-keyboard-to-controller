@@ -18,12 +18,16 @@ class InputMapper:
         
         # Variables per al moviment acumulat del ratolí
         self.last_mouse_time = time.time()
+        self.last_mx = None
+        self.last_my = None
         
         # Carregar mapes de tecles
         self.key_map = self.config['buttons']
         self.reverse_key_map = {v: k for k, v in self.key_map.items() if not k.startswith('stick') and not k.startswith('dpad')}
         
         # Inicialitzar listeners
+        self.k_listener = None
+        self.m_listener = None
         self.setup_listeners()
 
     def load_config(self, path):
@@ -77,16 +81,8 @@ class InputMapper:
         if not self.camera_active:
             return
 
-        # Calculem el delta respecte al centre o acumulem moviment
-        # En aquest enfocament simple, usem la posició relativa si el ratolí està capturat,
-        # o simplement la velocitat. Pynput dona coordenades absolutes.
-        # Per fer-ho bé sense capturar el cursor constantment, necessitem calcular la diferència.
-        # Però per simplicitat en aquest exemple, assumirem que l'usuari mou el ratolí
-        # i nosaltres mapegem la posició relativa o utilitzarem un buffer de moviment.
-        
-        # NOTA: Pynput 'on_move' dona posició absoluta. Per a càmera cal delta.
-        # Implementarem un petit truc: guardem la última posició.
-        if not hasattr(self, 'last_mx'):
+        # Inicialitzar la última posició si és el primer moviment
+        if self.last_mx is None or self.last_my is None:
             self.last_mx = x
             self.last_my = y
             return
@@ -96,6 +92,7 @@ class InputMapper:
         
         self.last_mx = x
         self.last_my = y
+        self.last_mouse_time = time.time()  # Actualitzar el temps de l'últim moviment
 
         # Aplicar sensibilitat i inversió
         sens_x = self.config['camera']['sensitivity_x']
@@ -167,51 +164,68 @@ class InputMapper:
 
         # D-Pad (HAT Switch)
         dpad_val = vg.DS4_DPAD_DIRECTIONS.DS4_BUTTON_DPAD_NONE
-        if cfg['buttons'].get('dpad_up') in keys:
-            if cfg['buttons'].get('dpad_left') in keys: dpad_val = vg.DS4_DPAD_DIRECTIONS.DS4_BUTTON_DPAD_NORTHWEST
-            elif cfg['buttons'].get('dpad_right') in keys: dpad_val = vg.DS4_DPAD_DIRECTIONS.DS4_BUTTON_DPAD_NORTHEAST
-            else: dpad_val = vg.DS4_DPAD_DIRECTIONS.DS4_BUTTON_DPAD_NORTH
-        elif cfg['buttons'].get('dpad_down') in keys:
-            if cfg['buttons'].get('dpad_left') in keys: dpad_val = vg.DS4_DPAD_DIRECTIONS.DS4_BUTTON_DPAD_SOUTHWEST
-            elif cfg['buttons'].get('dpad_right') in keys: dpad_val = vg.DS4_DPAD_DIRECTIONS.DS4_BUTTON_DPAD_SOUTHEAST
-            else: dpad_val = vg.DS4_DPAD_DIRECTIONS.DS4_BUTTON_DPAD_SOUTH
-        elif cfg['buttons'].get('dpad_left') in keys:
+        dpad_up_key = self.normalize_key_text(cfg['buttons'].get('dpad_up'))
+        dpad_down_key = self.normalize_key_text(cfg['buttons'].get('dpad_down'))
+        dpad_left_key = self.normalize_key_text(cfg['buttons'].get('dpad_left'))
+        dpad_right_key = self.normalize_key_text(cfg['buttons'].get('dpad_right'))
+        
+        if dpad_up_key in keys:
+            if dpad_left_key in keys: 
+                dpad_val = vg.DS4_DPAD_DIRECTIONS.DS4_BUTTON_DPAD_NORTHWEST
+            elif dpad_right_key in keys: 
+                dpad_val = vg.DS4_DPAD_DIRECTIONS.DS4_BUTTON_DPAD_NORTHEAST
+            else: 
+                dpad_val = vg.DS4_DPAD_DIRECTIONS.DS4_BUTTON_DPAD_NORTH
+        elif dpad_down_key in keys:
+            if dpad_left_key in keys: 
+                dpad_val = vg.DS4_DPAD_DIRECTIONS.DS4_BUTTON_DPAD_SOUTHWEST
+            elif dpad_right_key in keys: 
+                dpad_val = vg.DS4_DPAD_DIRECTIONS.DS4_BUTTON_DPAD_SOUTHEAST
+            else: 
+                dpad_val = vg.DS4_DPAD_DIRECTIONS.DS4_BUTTON_DPAD_SOUTH
+        elif dpad_left_key in keys:
             dpad_val = vg.DS4_DPAD_DIRECTIONS.DS4_BUTTON_DPAD_WEST
-        elif cfg['buttons'].get('dpad_right') in keys:
+        elif dpad_right_key in keys:
             dpad_val = vg.DS4_DPAD_DIRECTIONS.DS4_BUTTON_DPAD_EAST
             
         self.gamepad.directional_pad(dpad_val)
 
         # Triggers (Analògics 0-255)
-        z_val = 255 if cfg['buttons'].get('ZL') in keys else 0
+        zl_key = self.normalize_key_text(cfg['buttons'].get('ZL'))
+        zr_key = self.normalize_key_text(cfg['buttons'].get('ZR'))
+        
+        z_val = 255 if zl_key in keys else 0
         self.gamepad.left_trigger(z_val)
         
-        zr_val = 255 if cfg['buttons'].get('ZR') in keys else 0
+        zr_val = 255 if zr_key in keys else 0
         self.gamepad.right_trigger(zr_val)
 
         # 2. Stick Esquerre (Moviment)
-        lx, ly = self.get_analog_stick(
-            cfg['buttons'].get('stick_left_up'),
-            cfg['buttons'].get('stick_left_down'),
-            cfg['buttons'].get('stick_left_left'),
-            cfg['buttons'].get('stick_left_right')
-        )
+        sl_up = self.normalize_key_text(cfg['buttons'].get('stick_left_up'))
+        sl_down = self.normalize_key_text(cfg['buttons'].get('stick_left_down'))
+        sl_left = self.normalize_key_text(cfg['buttons'].get('stick_left_left'))
+        sl_right = self.normalize_key_text(cfg['buttons'].get('stick_left_right'))
+        
+        lx, ly = self.get_analog_stick(sl_up, sl_down, sl_left, sl_right)
         self.gamepad.left_joystick(lx, ly)
 
         # 3. Stick Dret (Càmera - Ratolí)
-        # Afegim una petita inèrcia o suavitzat si cal, aquí va directe
-        self.gamepad.right_joystick(self.mouse_x, self.mouse_y)
+        # Aplicar suavitzat per evitar salts bruscos
+        smoothing = 0.3  # Factor de suavitzat (0.0 a 1.0)
+        smoothed_x = self.mouse_x * smoothing + (1 - smoothing) * (getattr(self, '_prev_mouse_x', 0))
+        smoothed_y = self.mouse_y * smoothing + (1 - smoothing) * (getattr(self, '_prev_mouse_y', 0))
+        self._prev_mouse_x = smoothed_x
+        self._prev_mouse_y = smoothed_y
         
-        # Netejar buffer de ratolí si no hi ha moviment recent (opcional, per evitar drift)
-        # En aquest model, si no hi ha esdeveniment de ratolí, mouse_x es manté l'últim valor.
-        # Caldria un temporitzador per retornar a zero si no es mou el ratolí.
-        # Simplificació: El ratolí només envia valors quan es mou? 
-        # No, el gamepad necessita un estat constant. Si no toques el ratolí, ha de ser 0.
-        # Corregim això:
+        self.gamepad.right_joystick(smoothed_x, smoothed_y)
+        
+        # Netejar buffer de ratolí si no hi ha moviment recent (evitar drift)
         current_time = time.time()
         if current_time - self.last_mouse_time > 0.1: # Si fa més de 100ms que no es mou
              self.mouse_x = 0.0
              self.mouse_y = 0.0
+             self._prev_mouse_x = 0.0
+             self._prev_mouse_y = 0.0
              # Actualitzem el gamepad immediatament per centrar-lo
              self.gamepad.right_joystick(0.0, 0.0)
 
@@ -226,8 +240,15 @@ class InputMapper:
         return t
 
     def run(self):
+        """Bucle principal d'execució."""
         print("Iniciant pont Ratolí/Teclat -> Ryujinx...")
         print("Assegura't que Ryujinx tingui configurat el 'Player 1' com a controlador USB/DualShock 4.")
+        
+        # Verificar que els listeners s'han iniciat correctament
+        if not self.k_listener or not self.m_listener:
+            print("Error: Els listeners no s'han inicialitzat correctament.")
+            return
+            
         try:
             while True:
                 self.update_gamepad()
@@ -238,3 +259,5 @@ class InputMapper:
             self.gamepad.update()
             self.k_listener.stop()
             self.m_listener.stop()
+            self.k_listener.join()
+            self.m_listener.join()

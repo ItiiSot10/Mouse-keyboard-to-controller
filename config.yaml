@@ -37,8 +37,4 @@ buttons:
 # Control de la càmera amb ratolí
 mouse_control:
   enabled: true
-  toggle_key: 'Right Button' # Tecla per activar/desactivar (o 'None' per sempre actiu)
-  # Si toggle_key és un botó del ratolí, caldrà lògica especial, 
-  # per simplificar farem que sigui una tecla o sempre actiu.
-  # Recomano usar una tecla com 'Middle Button' o deixar-ho sempre actiu.
   always_active: true      # Si false, necessites una tecla per bloquejar el cursor
