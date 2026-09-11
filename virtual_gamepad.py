@@ -22,23 +22,30 @@ except ImportError:
 def _get_buttons_map() -> Dict[str, Any]:
     """Retorna el mapeig de botons segons disponibilitat de vgamepad."""
     if VGAMEPAD_AVAILABLE and vg:
+        # Compatibilitat amb diferents versions de vgamepad
+        buttons_module = getattr(vg, 'XUSB_BUTTONS', None) or getattr(vg, 'XUSB_BUTTON', None)
+        
+        if not buttons_module:
+            print("ERROR: No s'han trobat les constants de botons a vgamepad.")
+            return {}
+            
         return {
-            'BUTTON_A': vg.XUSB_BUTTONS.XUSB_GAMEPAD_A,
-            'BUTTON_B': vg.XUSB_BUTTONS.XUSB_GAMEPAD_B,
-            'BUTTON_X': vg.XUSB_BUTTONS.XUSB_GAMEPAD_X,
-            'BUTTON_Y': vg.XUSB_BUTTONS.XUSB_GAMEPAD_Y,
-            'BUTTON_L': vg.XUSB_BUTTONS.XUSB_GAMEPAD_LEFT_SHOULDER,
-            'BUTTON_R': vg.XUSB_BUTTONS.XUSB_GAMEPAD_RIGHT_SHOULDER,
+            'BUTTON_A': buttons_module.XUSB_GAMEPAD_A,
+            'BUTTON_B': buttons_module.XUSB_GAMEPAD_B,
+            'BUTTON_X': buttons_module.XUSB_GAMEPAD_X,
+            'BUTTON_Y': buttons_module.XUSB_GAMEPAD_Y,
+            'BUTTON_L': buttons_module.XUSB_GAMEPAD_LEFT_SHOULDER,
+            'BUTTON_R': buttons_module.XUSB_GAMEPAD_RIGHT_SHOULDER,
             'BUTTON_ZL': None,  # Els triggers són analògics
             'BUTTON_ZR': None,
-            'BUTTON_PLUS': vg.XUSB_BUTTONS.XUSB_GAMEPAD_START,
-            'BUTTON_MINUS': vg.XUSB_BUTTONS.XUSB_GAMEPAD_BACK,
-            'BUTTON_HOME': vg.XUSB_BUTTONS.XUSB_GAMEPAD_GUIDE,
+            'BUTTON_PLUS': buttons_module.XUSB_GAMEPAD_START,
+            'BUTTON_MINUS': buttons_module.XUSB_GAMEPAD_BACK,
+            'BUTTON_HOME': buttons_module.XUSB_GAMEPAD_GUIDE,
             'BUTTON_CAPTURE': None,  # No existeix a XInput, es pot mapejar a BACK
-            'DPAD_UP': vg.XUSB_BUTTONS.XUSB_GAMEPAD_DPAD_UP,
-            'DPAD_DOWN': vg.XUSB_BUTTONS.XUSB_GAMEPAD_DPAD_DOWN,
-            'DPAD_LEFT': vg.XUSB_BUTTONS.XUSB_GAMEPAD_DPAD_LEFT,
-            'DPAD_RIGHT': vg.XUSB_BUTTONS.XUSB_GAMEPAD_DPAD_RIGHT,
+            'DPAD_UP': buttons_module.XUSB_GAMEPAD_DPAD_UP,
+            'DPAD_DOWN': buttons_module.XUSB_GAMEPAD_DPAD_DOWN,
+            'DPAD_LEFT': buttons_module.XUSB_GAMEPAD_DPAD_LEFT,
+            'DPAD_RIGHT': buttons_module.XUSB_GAMEPAD_DPAD_RIGHT,
         }
     return {}
 
@@ -86,8 +93,11 @@ class VirtualGamepad:
             self.gamepad.right_trigger(value=self.right_trigger)
         elif button_name == 'BUTTON_CAPTURE':
             # Mapeja Capture a BACK com a alternativa
-            self.gamepad.press_button(button=vg.XUSB_BUTTONS.XUSB_GAMEPAD_BACK)
-            self.pressed_buttons.add(button_name)
+            # Utilitza la mateixa lògica per trobar la constant
+            buttons_module = getattr(vg, 'XUSB_BUTTONS', None) or getattr(vg, 'XUSB_BUTTON', None)
+            if buttons_module:
+                self.gamepad.press_button(button=buttons_module.XUSB_GAMEPAD_BACK)
+                self.pressed_buttons.add(button_name)
     
     def release_button(self, button_name: str) -> None:
         """
@@ -111,8 +121,11 @@ class VirtualGamepad:
             self.right_trigger = 0
             self.gamepad.right_trigger(value=self.right_trigger)
         elif button_name == 'BUTTON_CAPTURE':
-            self.gamepad.release_button(button=vg.XUSB_BUTTONS.XUSB_GAMEPAD_BACK)
-            self.pressed_buttons.discard(button_name)
+            # Mapeja Capture a BACK com a alternativa
+            buttons_module = getattr(vg, 'XUSB_BUTTONS', None) or getattr(vg, 'XUSB_BUTTON', None)
+            if buttons_module:
+                self.gamepad.release_button(button=buttons_module.XUSB_GAMEPAD_BACK)
+                self.pressed_buttons.discard(button_name)
     
     def set_left_stick(self, x: float, y: float) -> None:
         """
