@@ -1,0 +1,45 @@
+keyboard_mapping:
+  # Botons principals
+  a: BUTTON_A
+  b: BUTTON_B
+  x: BUTTON_X
+  y: BUTTON_Y
+  
+  # Gallets
+  q: BUTTON_L
+  e: BUTTON_R
+  z: BUTTON_ZL
+  c: BUTTON_ZR
+  
+  # Botons especials
+  space: BUTTON_A
+  enter: BUTTON_PLUS
+  backspace: BUTTON_MINUS
+  f: BUTTON_HOME
+  tab: BUTTON_CAPTURE
+  
+  # D-Pad
+  up: DPAD_UP
+  down: DPAD_DOWN
+  left: DPAD_LEFT
+  right: DPAD_RIGHT
+  
+  # Stick esquerre (tecles de moviment)
+  w: STICK_LEFT_UP
+  s: STICK_LEFT_DOWN
+  a_key: STICK_LEFT_LEFT
+  d: STICK_LEFT_RIGHT
+
+mouse_camera:
+  enabled: true
+  toggle_key: right_alt
+  sensitivity_x: 0.5
+  sensitivity_y: 0.5
+  invert_y: false
+  deadzone: 0.1
+  max_speed: 1.0
+  capture_cursor: false
+
+general:
+  update_interval_ms: 16
+  debug_mode: false
