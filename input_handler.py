@@ -124,10 +124,67 @@ class InputHandler:
         
         return None
     
-    def _on_mouse_move(self, x: int, y: int, dx: int, dy: int) -> None:
-        """Callback intern per a moviment del ratolí."""
-        if self.on_mouse_move:
-            self.on_mouse_move(dx, dy)
+    def _on_mouse_move(self, x, y, dx, dy=None):
+        """
+        Gestiona el moviment del ratolí.
+        pynput a vegades passa (x, y) i a vegades (x, y, dx, dy).
+        Si no rep dx/dy, els calcula guardant la posició anterior.
+        """
+        if not self.camera_enabled:
+            return
+
+        # Si pynput no dona dx/dy (mode absolut), els calculem
+        if dx is None:
+            if hasattr(self, '_last_x') and hasattr(self, '_last_y'):
+                dx = x - self._last_x
+                dy = y - self._last_y
+            else:
+                # Primer moviment, inicialitzem però no movem la càmera encara
+                self._last_x = x
+                self._last_y = y
+                return
+        
+        # Actualitzem la última posició coneguda
+        self._last_x = x
+        self._last_y = y
+
+        # Apliquem deadzone i sensibilitat
+        deadzone = self.config.get('mouse', {}).get('deadzone', 5)
+        sensitivity_x = self.config.get('mouse', {}).get('sensitivity_x', 1.0)
+        sensitivity_y = self.config.get('mouse', {}).get('sensitivity_y', 1.0)
+        invert_y = self.config.get('mouse', {}).get('invert_y', False)
+        max_speed = self.config.get('mouse', {}).get('max_speed', 100)
+
+        # Apliquem deadzone
+        if abs(dx) < deadzone:
+            dx = 0
+        if abs(dy) < deadzone:
+            dy = 0
+
+        # Si el moviment és zero després de la deadzone, no fem res
+        if dx == 0 and dy == 0:
+            return
+
+        # Apliquem sensibilitat i inversió
+        dx = int(dx * sensitivity_x)
+        dy = int(dy * sensitivity_y)
+        
+        if invert_y:
+            dy = -dy
+
+        # Limitem la velocitat màxima
+        if abs(dx) > max_speed:
+            dx = max_speed if dx > 0 else -max_speed
+        if abs(dy) > max_speed:
+            dy = max_speed if dy > 0 else -max_speed
+
+        # Enviem al gamepad virtual (Stick Dret: RX, RY)
+        if self.gamepad:
+            self.gamepad.set_axis('RX', dx)
+            self.gamepad.set_axis('RY', dy)
+            
+            if self.debug:
+                print(f"[MOUSE] dx: {dx}, dy: {dy}")
     
     def _on_mouse_click(self, x: int, y: int, button, pressed: bool) -> None:
         """Callback intern per a clics del ratolí."""
