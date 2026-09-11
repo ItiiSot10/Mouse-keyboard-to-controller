@@ -66,6 +66,10 @@ class InputHandler:
         self.pressed_keys: Set[str] = set()
         self.mouse_buttons: Set[str] = set()
         
+        # Per calcular moviment relatiu del ratolí a Windows
+        self._last_x: int = 0
+        self._last_y: int = 0
+        
         self._keyboard_listener: Optional[keyboard.Listener] = None
         self._mouse_listener: Optional[mouse.Listener] = None
         
@@ -124,8 +128,16 @@ class InputHandler:
         
         return None
     
-    def _on_mouse_move(self, x: int, y: int, dx: int, dy: int) -> None:
-        """Callback intern per a moviment del ratolí."""
+    def _on_mouse_move(self, x: int, y: int) -> None:
+        """Callback intern per a moviment del ratolí (coordenades absolutes)."""
+        # Calculem el moviment relatiu (dx, dy)
+        dx = x - self._last_x
+        dy = y - self._last_y
+        
+        # Actualitzem la darrera posició
+        self._last_x = x
+        self._last_y = y
+        
         if self.on_mouse_move:
             self.on_mouse_move(dx, dy)
     
